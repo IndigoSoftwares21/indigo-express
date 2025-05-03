@@ -1,6 +1,6 @@
 {
   "name": "indigo-express",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A robust TypeScript-based Express API template with PostgreSQL database integration, featuring Knex migrations and Kysely query builder",
   "main": "index.js",
   "bin": {
