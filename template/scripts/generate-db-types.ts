@@ -19,6 +19,9 @@ interface TableGroups {
 }
 
 async function main() {
+    // Add a small delay to ensure migrations have fully completed
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     // Database connection details
     const connectionDetails = {
         host: process.env.DB_HOST,
@@ -26,9 +29,17 @@ async function main() {
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
         port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
+        ssl: {
+            rejectUnauthorized: false,
+        },
     };
 
-    const pool = new Pool(connectionDetails);
+    const pool = new Pool({
+        ...connectionDetails,
+        max: 2, // Limit connections for this script
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 10000,
+    });
 
     try {
         // Query to get all tables and their columns
