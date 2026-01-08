@@ -1,7 +1,7 @@
 {
   "name": "indigo-express",
-  "version": "1.0.1",
-  "description": "A robust TypeScript-based Express API template with PostgreSQL database integration, featuring Knex migrations and Kysely query builder",
+  "version": "2.0.0",
+  "description": "A robust TypeScript-based Express API template with PostgreSQL, Knex migrations, Kysely query builder, and interactive code generators for rapid API development",
   "main": "index.js",
   "bin": {
     "indigo-express": "./bin/indigo-express.js"
@@ -26,7 +26,11 @@
     "kysely",
     "boilerplate",
     "template",
-    "starter"
+    "starter",
+    "code-generator",
+    "scaffolding",
+    "layered-architecture",
+    "api-versioning"
   ],
   "author": "Precious Chidera Orjiude",
   "license": "MIT",
