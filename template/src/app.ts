@@ -1,6 +1,7 @@
 import express from "express";
 import { disconnect } from "@/database";
 import { handleMulterError } from "@/middlewares/multer";
+import appRoutes from "@/routes/app.routes";
 
 import dotenv from "dotenv";
 import cors from "cors";
@@ -36,6 +37,11 @@ class App {
         });
         this.express.use(handleMulterError);
 
+        this.express.use((req, res, next) => {
+            monitoring.info(`${req.method} ${req.path}`);
+            next();
+        });
+
         if (process.env.APP_ENVIRONMENT === "PRODUCTION") {
             // 30 requests per minute per IP
             const limiter = rateLimit({
@@ -48,7 +54,12 @@ class App {
 
     private initializeRoutes(): void {
         monitoring.info("Initializing routes");
-        // add routes here
+        
+        const apiVersion = process.env.API_VERSION || 'v1';
+        
+        // Register route modules here
+        this.express.use(`/api/${apiVersion}/app`, appRoutes);
+        monitoring.info(`Registered route: /api/${apiVersion}/app`);
     }
 
     public async start(port: number): Promise<void> {

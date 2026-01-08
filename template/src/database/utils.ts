@@ -1,4 +1,4 @@
-import { toCamelCase } from "@/utils/transform";
+import { camelize } from "@/utils/camelize";
 import type { SelectQueryBuilder } from "kysely";
 
 /**
@@ -10,20 +10,7 @@ export const camelKeys = <T extends (...args: any[]) => Promise<any>>(
 ): any => {
     return (async (...args: Parameters<T>) => {
         const result = await fn(...args);
-        if (Array.isArray(result)) {
-            return result.map((row) => {
-                const transformed: Record<string, any> = {};
-                for (const [key, value] of Object.entries(row)) {
-                    const camelKey = key.replace(/_([a-z])/g, (_, letter) =>
-                        letter.toUpperCase(),
-                    );
-                    // Preserve Date objects and other non-null values
-                    transformed[camelKey] = value;
-                }
-                return transformed as any;
-            });
-        }
-        return result as any;
+        return camelize(result);
     }) as any;
 };
 

@@ -1,12 +1,12 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { ZodError } from "zod";
 import { DatabaseError } from "pg";
 import monitoring from "../monitoring";
 import ERRORS from "@/constants/error_types";
-import SlackService from "@/services/slack";
 
 interface IHandleError {
     res: Response;
+    req?: Request;
     message?: string;
     code?: number;
     error?: any;
@@ -14,6 +14,7 @@ interface IHandleError {
 
 const handleError = ({
     res,
+    req,
     message = "An error occurred",
     code = 500,
     error,
@@ -32,6 +33,8 @@ const handleError = ({
             message: err.message,
         }));
 
+        monitoring.info(`${req?.method} ${req?.originalUrl} - ${errorCode}`);
+
         return res.status(errorCode).json({
             message: errorMessage,
             code: errorCode,
@@ -47,6 +50,7 @@ const handleError = ({
             Error(
                 JSON.stringify(
                     {
+                        user: (req as any)?.user,
                         code: dbErrorCode,
                         detail: error.detail,
                         constraint: error.constraint,
@@ -95,28 +99,13 @@ const handleError = ({
         errorMessage = error.message;
     }
 
-    // Send Slack alert for 500 errors
-    if (errorCode >= 500) {
-        const slackService = new SlackService();
-        const slackMessage = `🚨 *500 Error Alert* 🚨
-        
-*Error:* ${errorMessage}
-*Code:* ${errorCode}
-*Timestamp:* ${new Date().toISOString()}
-*Environment:* ${process.env.NODE_ENV || "unknown"}
+    monitoring.info(`${req?.method} ${req?.originalUrl} - ${errorCode}`);
 
-${
-    error?.stack
-        ? `*Stack Trace:*
-\`\`\`
-${error.stack}
-\`\`\``
-        : ""
-}`;
-
-        slackService.sendWebhookMessage({
-            message: slackMessage,
-            webhookUrl: process.env.SLACK_ERROR_WEBHOOK_URL,
+    if (errorCode === 500) {
+        return res.status(errorCode).json({
+            message:
+                "An error occurred while processing your request. Please try again later or contact support.",
+            code: errorCode,
         });
     }
 

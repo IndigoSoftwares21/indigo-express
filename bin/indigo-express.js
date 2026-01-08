@@ -60,6 +60,14 @@ async function init() {
     // Copy template files to target directory
     await copyRecursive(templateDir, targetDir);
 
+    // Auto-generate .env file from .env.example
+    const envExamplePath = path.join(targetDir, ".env.example");
+    const envPath = path.join(targetDir, ".env");
+    if (existsSync(envExamplePath)) {
+      await fs.copyFile(envExamplePath, envPath);
+      console.log(chalk.green("✔ Auto-generated .env file"));
+    }
+
     // Display success message
     displaySuccessMessage(targetDir);
   } catch (error) {
@@ -159,9 +167,6 @@ function displaySuccessMessage(dir) {
   }
 
   console.log(`  ${chalk.cyan("npm install")}         # Install dependencies`);
-  console.log(
-    `  ${chalk.cyan("cp .env.example .env")} # Create environment file`
-  );
   console.log(
     `  ${chalk.cyan("npm run dev")}          # Start development server\n`
   );

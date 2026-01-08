@@ -18,7 +18,9 @@
     "migrate-down:once": "npx knex migrate:down --env development && ts-node scripts/generate-db-types.ts",
     "migrate-down:all": "npx knex migrate:rollback --all --env development && ts-node scripts/generate-db-types.ts",
     "migrate-up:dry-once": "npx knex migrate:up --env development --dry-run && ts-node scripts/generate-db-types.ts",
-    "migrate-down:dry-once": "npx knex migrate:down --env development --dry-run && ts-node scripts/generate-db-types.ts"
+    "migrate-down:dry-once": "npx knex migrate:down --env development --dry-run && ts-node scripts/generate-db-types.ts",
+    "create:endpoint": "ts-node scripts/create-endpoint.ts",
+    "create:helper": "ts-node scripts/create-helper.ts"
   },
   "keywords": [
     "express",
@@ -33,10 +35,12 @@
     "cloudinary": "^2.6.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
+    "chalk": "^4.1.2",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
+    "inquirer": "^8.2.5",
     "jsonwebtoken": "^9.0.2",
     "knex": "^3.1.0",
     "kysely": "^0.27.6",
@@ -68,6 +72,7 @@
     "@types/pg": "^8.11.11",
     "@types/streamifier": "^0.1.2",
     "@types/supertest": "^6.0.2",
+    "@types/inquirer": "^8.2.6",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",

@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
-        "target": "es2020",
+        "target": "es2022",
         "module": "commonjs",
         "resolveJsonModule": true,
-        "lib": ["es2020"],
+        "lib": ["es2022", "esnext"],
         "declaration": true,
         "outDir": "./dist",
         "rootDir": "./",

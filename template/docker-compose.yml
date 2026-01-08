@@ -17,30 +17,5 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.dev
-    ports:
-      - "6969:6969"
-    volumes:
-      - ./src:/app/src
-      - ./migrations:/app/migrations
-      - ./scripts:/app/scripts
-      - ./knexfile.ts:/app/knexfile.ts
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./.env:/app/.env
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_PORT=${DB_PORT}
-      - PORT=${PORT}
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 volumes:
   postgres-data:

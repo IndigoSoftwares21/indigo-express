@@ -10,8 +10,8 @@ $$;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'sabi_vendor_db') THEN
-    CREATE DATABASE sabi_vendor_db
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'indigo_db') THEN
+    CREATE DATABASE indigo_db
       WITH OWNER = "user"
       ENCODING = 'UTF8'
       LC_COLLATE = 'C'
@@ -21,4 +21,4 @@ BEGIN
 END;
 $$;
 
-GRANT ALL PRIVILEGES ON DATABASE sabi_vendor_db TO "user";
+GRANT ALL PRIVILEGES ON DATABASE indigo_db TO "user";

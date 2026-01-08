@@ -1,7 +1,9 @@
-import { Response } from "express";
+import { Request, Response } from "express";
+import monitoring from "../monitoring";
 
 interface IHandleSuccess {
     res: Response;
+    req?: Request;
     message: string;
     code: number;
     data?: any;
@@ -39,10 +41,13 @@ const convertBigIntToString = (value: unknown): any => {
 
 const handleSuccess = ({
     res,
+    req,
     message = "Success",
     code = 204, // Default status code to 204
     data,
 }: IHandleSuccess): Response => {
+    monitoring.info(`${req?.method} ${req?.originalUrl} - ${code}`);
+
     const successResponse = {
         message,
         code,
