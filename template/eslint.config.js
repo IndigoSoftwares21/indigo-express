@@ -1,9 +1,6 @@
 import js from "@eslint/js";
 import typescript from "@typescript-eslint/eslint-plugin";
 import typescriptParser from "@typescript-eslint/parser";
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
 
 export default [
     {
