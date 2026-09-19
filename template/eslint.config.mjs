@@ -2,9 +2,6 @@ import { defineConfig } from "eslint/config";
 import globals from "globals";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
 
 export default defineConfig([
     { files: ["**/*.{js,mjs,cjs,ts}"] },
