@@ -17,7 +17,7 @@ The database module is transitioning from raw SQL queries to Kysely for better t
 ### Using Kysely
 
 ```typescript
-import { db } from "@/database/kysely";
+import { db } from "@/database";
 import type { Row, InsertRow, UpdateRow } from "@/database/types";
 
 // Select with type safety
@@ -58,6 +58,36 @@ await db.transaction().execute(async (trx) => {
 });
 ```
 
+### Column Names Are camelCase (Table Names Are Not)
+
+`db` has Kysely's `CamelCasePlugin` enabled (see `database/index.ts`), and
+`types.ts` is generated with **camelCase column names** by default
+(`DB_TYPES_CASE=camel` in `.env` — set it to `snake` to generate the real
+column names instead). **Table names are never affected either way** — they
+always match the real DB table names, so `selectFrom`/`insertInto`/joins
+reference tables exactly as today.
+
+This means for a column like `orders.tracking_token`, you write:
+
+```typescript
+const orderRow = await db
+    .selectFrom("orders")
+    .where("orders.trackingToken", "=", trackingToken) // camelCase column
+    .selectAll()
+    .executeTakeFirst();
+
+return orderRow ?? null; // orderRow.trackingToken — correctly typed, no wrapping needed
+```
+
+TypeScript enforces this: autocomplete only offers `trackingToken`, and the
+plugin sends the real `tracking_token` to Postgres. No wrapper, no cast,
+no `camelKeys()` — the type and the runtime value have always matched, for
+every query, since `types.ts` is generated to describe reality.
+
+If you'd rather work with real snake_case column names, set
+`DB_TYPES_CASE=snake` in `.env` and regenerate types — everything above still
+applies, just with the original column names instead.
+
 ### Type Generation
 
 Types are automatically generated after each migration. The types are stored in `types.ts` and reflect your current database schema.
@@ -82,7 +112,7 @@ const names = await db.selectFrom("users").select(["id", "name"]).execute();
 // Joins
 const userProfiles = await db
     .selectFrom("users")
-    .innerJoin("profiles", "users.id", "profiles.user_id")
+    .innerJoin("profiles", "users.id", "profiles.userId")
     .select(["users.name", "profiles.bio"])
     .execute();
 
@@ -131,7 +161,7 @@ const [user] = await db
         name: "John",
         email: "john@example.com",
     })
-    .returning(["id", "created_at"])
+    .returning(["id", "createdAt"])
     .execute();
 ```
 
@@ -149,7 +179,7 @@ await db
 await db
     .updateTable("users")
     .set({ status: "inactive" })
-    .where("last_login", "<", someDate)
+    .where("lastLogin", "<", someDate)
     .execute();
 
 // Update with returning
@@ -157,7 +187,7 @@ const [updated] = await db
     .updateTable("users")
     .set({ name: "John Doe" })
     .where("id", "=", userId)
-    .returning(["id", "name", "updated_at"])
+    .returning(["id", "name", "updatedAt"])
     .execute();
 ```
 
@@ -201,7 +231,7 @@ await db
     .selectFrom("users")
     .selectAll()
     .where("status", "=", "active")
-    .orderBy("created_at", "desc")
+    .orderBy("createdAt", "desc")
     .limit(10)
     .execute();
 ```
@@ -211,7 +241,7 @@ await db
 ```typescript
 await db
     .selectFrom("users")
-    .innerJoin("profiles", "users.id", "profiles.user_id")
+    .innerJoin("profiles", "users.id", "profiles.userId")
     .select(["users.name", "profiles.bio"])
     .execute();
 ```

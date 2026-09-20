@@ -1,19 +1,3 @@
-import { camelize } from "@/utils/camelize";
-import type { SelectQueryBuilder } from "kysely";
-
-/**
- * Transforms database results to camelCase
- * Similar to MySQL's toCamelCase
- */
-export const camelKeys = <T extends (...args: any[]) => Promise<any>>(
-    fn: T,
-): any => {
-    return (async (...args: Parameters<T>) => {
-        const result = await fn(...args);
-        return camelize(result);
-    }) as any;
-};
-
 /**
  * Gets the first result from a query
  * Similar to the getFirst utility from the MySQL code

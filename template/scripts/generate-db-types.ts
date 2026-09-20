@@ -18,6 +18,20 @@ interface TableGroups {
     [tableName: string]: TableColumn[];
 }
 
+// Column naming for the generated Database interface. Table names (the
+// top-level keys) always stay as their real snake_case DB names — only
+// column names are affected. Controlled by DB_TYPES_CASE in .env
+// ("camel" | "snake"), defaulting to "camel".
+const CASE_MODE = (process.env.DB_TYPES_CASE || "camel").toLowerCase();
+
+function toCamelCase(column: string): string {
+    return column.replace(/_([a-z0-9])/g, (_, char) => char.toUpperCase());
+}
+
+function toPropertyName(column: string): string {
+    return CASE_MODE === "snake" ? column : toCamelCase(column);
+}
+
 async function main() {
     // Add a small delay to ensure migrations have fully completed
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -68,6 +82,9 @@ async function main() {
         let typeDefinitions = `/**
  * This file was automatically generated.
  * DO NOT MODIFY IT MANUALLY.
+ *
+ * Column names are ${CASE_MODE === "snake" ? "snake_case" : "camelCase"} (DB_TYPES_CASE=${CASE_MODE}).
+ * Table names always match the real DB table names.
  */
 
 import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
@@ -141,11 +158,12 @@ export interface Database {
                 }
 
                 // Make auto-generated fields optional
+                const propertyName = toPropertyName(column.column_name);
                 if (isGenerated) {
-                    typeDefinitions += `    ${column.column_name}?: ColumnType<${tsType}${isNullable}>;
+                    typeDefinitions += `    ${propertyName}?: ColumnType<${tsType}${isNullable}>;
 `;
                 } else {
-                    typeDefinitions += `    ${column.column_name}: ColumnType<${tsType}${isNullable}>;
+                    typeDefinitions += `    ${propertyName}: ColumnType<${tsType}${isNullable}>;
 `;
                 }
             });

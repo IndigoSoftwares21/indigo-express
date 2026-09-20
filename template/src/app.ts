@@ -1,4 +1,5 @@
 import express from "express";
+import type { Server } from "http";
 import { disconnect } from "@/database";
 import { handleMulterError } from "@/middlewares/multer";
 import appRoutes from "@/routes/app.routes";
@@ -16,6 +17,7 @@ const corsOptions = {
 
 class App {
     public express: express.Application;
+    public server?: Server;
 
     constructor() {
         this.express = express();
@@ -65,7 +67,7 @@ class App {
     public async start(port: number): Promise<void> {
         try {
             dotenv.config();
-            this.express.listen(port, () => {
+            this.server = this.express.listen(port, () => {
                 monitoring.info(`Server running on port ${port}`);
             });
         } catch (error) {
@@ -76,8 +78,14 @@ class App {
     }
 }
 
-const PORT = parseInt(process.env.PORT || "6969", 10);
 const app = new App();
-app.start(PORT);
+
+// Only auto-start the server when this file is run directly (e.g. `node
+// dist/app.js`) — importing it (for example from a test) should not bind
+// a real port.
+if (require.main === module) {
+    const PORT = parseInt(process.env.PORT || "6969", 10);
+    app.start(PORT);
+}
 
 export default app;

@@ -1,6 +1,9 @@
 /**
  * This file was automatically generated.
  * DO NOT MODIFY IT MANUALLY.
+ *
+ * Column names are camelCase (DB_TYPES_CASE=camel).
+ * Table names always match the real DB table names.
  */
 
 import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
@@ -10,19 +13,19 @@ export interface Database {
   demo: {
     id?: ColumnType<number>;
     name: ColumnType<string>;
-    created_at?: ColumnType<Date | null>;
+    createdAt?: ColumnType<Date | null>;
   };
 
   knex_migrations: {
     id?: ColumnType<number>;
     name: ColumnType<string | null>;
     batch: ColumnType<number | null>;
-    migration_time: ColumnType<Date | null>;
+    migrationTime: ColumnType<Date | null>;
   };
 
   knex_migrations_lock: {
     index?: ColumnType<number>;
-    is_locked: ColumnType<number | null>;
+    isLocked: ColumnType<number | null>;
   };
 
 }

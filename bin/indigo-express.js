@@ -20,6 +20,51 @@ const targetDir = args[0]
 
 const templateDir = path.join(__dirname, "../template");
 
+// Entries that don't count as "existing content" when checking whether a
+// target directory is safe to scaffold into (e.g. a freshly cloned repo
+// that only has a .git folder and maybe a README/LICENSE).
+const BENIGN_ENTRIES = new Set([
+  ".git",
+  ".gitignore",
+  ".gitattributes",
+  ".DS_Store",
+  "README.md",
+  "LICENSE",
+  "LICENSE.md",
+]);
+
+/**
+ * Derives a valid npm package name from the target directory name.
+ * @param {string} name - Raw directory basename
+ * @returns {string} - A valid, lowercase, kebab-case package name
+ */
+function toPackageName(name) {
+  const sanitized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9-~]+/g, "-")
+    .replace(/^[-._]+|[-._]+$/g, "");
+
+  return sanitized || "indigo-express-api";
+}
+
+/**
+ * Derives a valid Postgres database name from the target directory name.
+ * @param {string} name - Raw directory basename
+ * @returns {string} - A valid, lowercase, snake_case database name
+ */
+function toDbName(name) {
+  let sanitized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (/^[0-9]/.test(sanitized)) {
+    sanitized = `db_${sanitized}`;
+  }
+
+  return sanitized || "indigo_db";
+}
+
 // Create readline interface for user input
 const rl = readline.createInterface({
   input: process.stdin,
@@ -40,8 +85,14 @@ async function init() {
     const targetExists = existsSync(targetDir);
 
     if (targetExists) {
-      // Handle existing directory
-      const isEmpty = (await fs.readdir(targetDir)).length === 0;
+      // Handle existing directory. Ignore benign entries (.git, README,
+      // LICENSE, etc.) so a freshly cloned/initialized repo isn't treated
+      // as "non-empty".
+      const existingEntries = await fs.readdir(targetDir);
+      const conflictingEntries = existingEntries.filter(
+        (entry) => !BENIGN_ENTRIES.has(entry)
+      );
+      const isEmpty = conflictingEntries.length === 0;
 
       if (!isEmpty) {
         const shouldOverwrite = await promptOverwrite(targetDir);
@@ -60,11 +111,17 @@ async function init() {
     // Copy template files to target directory
     await copyRecursive(templateDir, targetDir);
 
+    // Derive a project name from the target directory so scaffolded
+    // projects don't all share the template's placeholder name/DB.
+    const projectName = path.basename(targetDir);
+    await updatePackageName(targetDir, toPackageName(projectName));
+
     // Auto-generate .env file from .env.example
     const envExamplePath = path.join(targetDir, ".env.example");
     const envPath = path.join(targetDir, ".env");
     if (existsSync(envExamplePath)) {
       await fs.copyFile(envExamplePath, envPath);
+      await updateEnvDbName(envPath, toDbName(projectName));
       console.log(chalk.green("✔ Auto-generated .env file"));
     }
 
@@ -130,13 +187,41 @@ async function copyRecursive(src, dest) {
 }
 
 /**
- * Removes all contents from a directory
+ * Sets the "name" field in the scaffolded project's package.json.
+ * @param {string} dir - Target project directory
+ * @param {string} packageName - Derived package name
+ */
+async function updatePackageName(dir, packageName) {
+  const packageJsonPath = path.join(dir, "package.json");
+  if (!existsSync(packageJsonPath)) return;
+
+  const pkg = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
+  pkg.name = packageName;
+  await fs.writeFile(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
+/**
+ * Replaces the DB_NAME value in the scaffolded project's .env file.
+ * @param {string} envPath - Path to the .env file
+ * @param {string} dbName - Derived database name
+ */
+async function updateEnvDbName(envPath, dbName) {
+  const content = await fs.readFile(envPath, "utf8");
+  const updated = content.replace(/^DB_NAME=.*$/m, `DB_NAME=${dbName}`);
+  await fs.writeFile(envPath, updated);
+}
+
+/**
+ * Removes all contents from a directory, preserving .git so scaffolding
+ * into an existing repo never destroys its history.
  * @param {string} dir - Directory to clean
  */
 async function cleanDirectory(dir) {
   const entries = await fs.readdir(dir);
 
   for (const entry of entries) {
+    if (entry === ".git") continue;
+
     const entryPath = path.join(dir, entry);
     const stats = statSync(entryPath);
 

@@ -30,6 +30,5 @@
         "scripts/**/*",
         "knexfile.ts"
     ],
-    "exclude": ["node_modules", "dist", "migrations/queries"],
-    "plugins": [{ "transform": "typescript-transform-paths" }]
+    "exclude": ["node_modules", "dist", "migrations/queries"]
 }
