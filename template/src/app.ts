@@ -64,18 +64,67 @@ class App {
         monitoring.info(`Registered route: /api/${apiVersion}/app`);
     }
 
-    public async start(port: number): Promise<void> {
-        try {
-            dotenv.config();
-            this.server = this.express.listen(port, () => {
-                monitoring.info(`Server running on port ${port}`);
-            });
-        } catch (error) {
-            monitoring.error("Failed to start server:", error as Error);
-            await disconnect();
-            process.exit(1);
+    public async start(
+        port: number,
+        maxPortAttempts = 10,
+    ): Promise<void> {
+        dotenv.config();
+
+        let currentPort = port;
+
+        for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
+            try {
+                await this.listen(currentPort);
+                if (currentPort !== port) {
+                    monitoring.info(
+                        `Port ${port} was in use — started on ${currentPort} instead.`,
+                    );
+                }
+                return;
+            } catch (error) {
+                if (!isPortInUseError(error)) {
+                    monitoring.error("Failed to start server:", error as Error);
+                    await disconnect();
+                    process.exit(1);
+                }
+                currentPort += 1;
+            }
         }
+
+        monitoring.error(
+            "Failed to start server:",
+            new Error(
+                `No free port found after trying ${port}-${currentPort - 1}.`,
+            ),
+        );
+        await disconnect();
+        process.exit(1);
     }
+
+    private listen(port: number): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const server = this.express.listen(port);
+
+            server.once("listening", () => {
+                this.server = server;
+                monitoring.info(`Server running on port ${port}`);
+                resolve();
+            });
+
+            server.once("error", (error) => {
+                server.removeAllListeners();
+                reject(error);
+            });
+        });
+    }
+}
+
+function isPortInUseError(error: unknown): boolean {
+    return (
+        !!error &&
+        typeof error === "object" &&
+        (error as NodeJS.ErrnoException).code === "EADDRINUSE"
+    );
 }
 
 const app = new App();

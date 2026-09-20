@@ -43,9 +43,12 @@ async function main() {
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
         port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
-        ssl: {
-            rejectUnauthorized: false,
-        },
+        // Local Postgres (including this template's docker-compose service)
+        // doesn't support SSL — only enable it for hosts that require it.
+        ssl:
+            process.env.DB_SSL === "true"
+                ? { rejectUnauthorized: false }
+                : undefined,
     };
 
     const pool = new Pool({
