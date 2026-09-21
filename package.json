@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Indigosoftwares21/indigo-express.git"
+    "url": "https://github.com/IndigoSoftwares21/indigo-express.git"
   },
   "keywords": [
     "express",
@@ -43,7 +43,7 @@
     "node": ">=18.0.0"
   },
   "bugs": {
-    "url": "https://github.com/Indigosoftwares21/indigo-express/issues"
+    "url": "https://github.com/IndigoSoftwares21/indigo-express/issues"
   },
-  "homepage": "https://github.com/Indigosoftwares21/indigo-express#readme"
+  "homepage": "https://github.com/IndigoSoftwares21/indigo-express#readme"
 }
