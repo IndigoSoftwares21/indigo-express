@@ -19,6 +19,16 @@ mkdir my-project && cd my-project
 indigo-express .
 ```
 
+By default this also runs `npm install` and `git init` for you. Options:
+
+| Flag | Effect |
+| --- | --- |
+| `-y, --yes` | Don't prompt before overwriting a non-empty directory |
+| `--skip-install` | Don't run `npm install` after scaffolding |
+| `--skip-git` | Don't run `git init` after scaffolding |
+| `--db-name <name>` | Override the auto-derived database name used in `.env` |
+| `-v, --version` | Print the installed version |
+
 ### Prerequisites
 
 - Node.js (v18+)
@@ -27,7 +37,7 @@ indigo-express .
 
 ### Environment Setup
 
-1. After project creation, the `.env` file is automatically created with defaults:
+1. After project creation, the `.env` file is automatically created with defaults (the database name is derived from your project's directory name unless overridden with `--db-name`):
 
 ```env
 DB_HOST=localhost
@@ -40,7 +50,7 @@ PORT=6969
 API_VERSION=v1
 ```
 
-2. Install dependencies:
+2. Dependencies are installed automatically. If you used `--skip-install`, install them yourself:
 
 ```bash
 npm install

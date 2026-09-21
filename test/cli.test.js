@@ -44,6 +44,7 @@ test("--help prints usage", () => {
     assert.match(result.stdout, /Usage:/);
     assert.match(result.stdout, /--skip-install/);
     assert.match(result.stdout, /--skip-git/);
+    assert.match(result.stdout, /-y, --yes/);
     assert.match(result.stdout, /--db-name/);
 });
 
@@ -84,9 +85,13 @@ test("overwriting a non-empty directory preserves .git", () => {
     fs.writeFileSync(path.join(dir, ".git", "HEAD"), "ref: refs/heads/main\n");
     fs.writeFileSync(path.join(dir, "stale-file.txt"), "old content");
 
-    const result = runCli([".", "--skip-install", "--skip-git"], {
+    // --yes instead of piping "y\n" through stdin: confirming an interactive
+    // readline prompt via a piped, non-tty stdin is exactly the kind of thing
+    // that can behave inconsistently across platforms/timing, and --yes is
+    // the real, non-interactive way to do this anyway (useful for scripting
+    // indigo-express itself, not just for testing it).
+    const result = runCli([".", "--skip-install", "--skip-git", "--yes"], {
         cwd: dir,
-        input: "y\n",
     });
 
     assert.equal(result.status, 0, result.stderr);

@@ -98,7 +98,7 @@ async function init(target, options) {
       const isEmpty = conflictingEntries.length === 0;
 
       if (!isEmpty) {
-        const shouldOverwrite = await promptOverwrite(targetDir);
+        const shouldOverwrite = options.yes || (await promptOverwrite(targetDir));
         if (!shouldOverwrite) {
           console.log(chalk.yellow("Operation cancelled."));
           return;
@@ -362,6 +362,10 @@ program
   )
   .option("--skip-install", "don't run npm install after scaffolding")
   .option("--skip-git", "don't run git init after scaffolding")
+  .option(
+    "-y, --yes",
+    "don't prompt before overwriting a non-empty directory"
+  )
   .option(
     "--db-name <name>",
     "override the auto-derived database name (used in .env)"
