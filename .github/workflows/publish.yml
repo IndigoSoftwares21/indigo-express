@@ -1,8 +1,16 @@
 name: Publish
 
-# Publishes on every push to main, but only when the version in package.json
-# isn't already on npm. Bumping the version in a PR is the release signal — it
-# gets reviewed with the code, and merging is what ships it.
+# Stages a release on every push to main, but only when the version in
+# package.json isn't already on npm. Bumping the version in a PR is the
+# release signal — it gets reviewed with the code, and merging stages it.
+#
+# This does NOT make the package live by itself. `npm stage publish` creates
+# a staged release that a maintainer must explicitly approve with 2FA — via
+# `npm stage approve <package>@<version>` (after `npm login`) or on the
+# package's npmjs.com page — before it's actually published. That approval
+# step can't be automated: npm requires interactive proof-of-presence for it,
+# on purpose, so a compromised CI run can stage a bad release but can never
+# make it live on its own.
 #
 # Auth is npm trusted publishing (OIDC): no token is stored in this repo, and
 # none is exposed to the runner. GitHub mints a short-lived credential that npm
@@ -53,7 +61,7 @@ jobs:
             echo "indigo-express@$VERSION is already on npm — nothing to do."
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "indigo-express@$VERSION is new — publishing."
+            echo "indigo-express@$VERSION is new — staging it for release."
           fi
 
       - if: steps.check.outputs.published == 'false'
@@ -64,15 +72,26 @@ jobs:
       - if: steps.check.outputs.published == 'false'
         run: npm test
 
+      # Stages the release — this does not make it public. A maintainer must
+      # separately approve it with 2FA (see the header comment above) before
+      # anyone can actually install this version.
       # --provenance publishes a signed attestation linking the tarball to this
-      # commit and workflow, which npm shows on the package page.
+      # commit and workflow, which npm shows on the package page once approved.
       - if: steps.check.outputs.published == 'false'
-        run: npm publish --provenance --access public
+        run: npm stage publish --provenance --access public
 
-      # Tagged after the fact, so the tag only ever points at something that
-      # actually shipped.
+      # Tags once staging succeeds, not once it's actually live — approval
+      # happens outside CI and this workflow has no way to know when (or
+      # whether) that happens. The tag marks "staged for this version",
+      # matching what actually just happened in this job.
       - if: steps.check.outputs.published == 'false'
-        name: Tag the release
+        name: Tag the staged release
         run: |
           git tag "v${{ steps.check.outputs.version }}"
           git push origin "v${{ steps.check.outputs.version }}"
+
+      - if: steps.check.outputs.published == 'false'
+        name: Print next step
+        run: |
+          echo "Staged indigo-express@${{ steps.check.outputs.version }}."
+          echo "Approve it with 2FA to publish: npm stage approve indigo-express@${{ steps.check.outputs.version }} (after npm login), or via the package page on npmjs.com."
