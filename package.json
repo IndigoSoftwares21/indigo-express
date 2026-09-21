@@ -11,7 +11,8 @@
     "template"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/cli.test.js",
+    "prepublishOnly": "node scripts/verify-clean-template.js"
   },
   "repository": {
     "type": "git",
@@ -35,7 +36,8 @@
   "author": "Precious Chidera Orjiude",
   "license": "MIT",
   "dependencies": {
-    "chalk": "^4.1.2"
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

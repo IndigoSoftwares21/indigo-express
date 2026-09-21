@@ -1,0 +1,78 @@
+name: Publish
+
+# Publishes on every push to main, but only when the version in package.json
+# isn't already on npm. Bumping the version in a PR is the release signal — it
+# gets reviewed with the code, and merging is what ships it.
+#
+# Auth is npm trusted publishing (OIDC): no token is stored in this repo, and
+# none is exposed to the runner. GitHub mints a short-lived credential that npm
+# verifies against the publisher configured on the package, so there is nothing
+# for a malicious dependency to read out of the environment.
+#
+# Configure it once at npmjs.com → the package → Settings → Trusted Publisher:
+#   Provider:   GitHub Actions
+#   Repository: IndigoSoftwares21/indigo-express
+#   Workflow:   publish.yml
+on:
+  push:
+    branches: [main]
+  # Lets a failed publish be re-run without an empty commit.
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Pushes the release tag after a successful publish.
+      contents: write
+      # Mints the OIDC token. Without this the publish falls back to looking for
+      # a token and fails.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Trusted publishing needs npm 11.5.1+; Node 22 still ships npm 10.
+      - run: npm install -g npm@latest
+
+      # Is this version already out? `npm view` exits non-zero for a version
+      # that doesn't exist, which is exactly the signal we want.
+      - name: Check whether this version is published
+        id: check
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if npm view "indigo-express@$VERSION" version > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "indigo-express@$VERSION is already on npm — nothing to do."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "indigo-express@$VERSION is new — publishing."
+          fi
+
+      - if: steps.check.outputs.published == 'false'
+        run: npm ci --ignore-scripts
+
+      # No typecheck/build step: the root package (bin/indigo-express.js) is
+      # plain JS with nothing to compile.
+      - if: steps.check.outputs.published == 'false'
+        run: npm test
+
+      # --provenance publishes a signed attestation linking the tarball to this
+      # commit and workflow, which npm shows on the package page.
+      - if: steps.check.outputs.published == 'false'
+        run: npm publish --provenance --access public
+
+      # Tagged after the fact, so the tag only ever points at something that
+      # actually shipped.
+      - if: steps.check.outputs.published == 'false'
+        name: Tag the release
+        run: |
+          git tag "v${{ steps.check.outputs.version }}"
+          git push origin "v${{ steps.check.outputs.version }}"

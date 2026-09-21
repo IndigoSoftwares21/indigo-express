@@ -4,19 +4,14 @@ const fs = require("fs/promises");
 const path = require("path");
 const readline = require("readline");
 const { existsSync, statSync } = require("fs");
+const { spawn, spawnSync } = require("child_process");
+const { Command } = require("commander");
 const chalk = require("chalk"); // For colored console output
+const pkg = require("../package.json");
 
 /**
  * CLI script for indigo-express project generator
  */
-
-// Parse command line arguments
-const args = process.argv.slice(2);
-const targetDir = args[0]
-  ? args[0] === "."
-    ? process.cwd()
-    : path.join(process.cwd(), args[0])
-  : path.join(process.cwd(), "indigo-express-api");
 
 const templateDir = path.join(__dirname, "../template");
 
@@ -73,8 +68,16 @@ const rl = readline.createInterface({
 
 /**
  * Main function to start the process
+ * @param {string | undefined} target - Raw target argument from the CLI
+ * @param {{ skipInstall?: boolean, skipGit?: boolean, dbName?: string }} options
  */
-async function init() {
+async function init(target, options) {
+  const targetDir = target
+    ? target === "."
+      ? process.cwd()
+      : path.join(process.cwd(), target)
+    : path.join(process.cwd(), "indigo-express-api");
+
   try {
     // Check if template directory exists
     if (!existsSync(templateDir)) {
@@ -111,6 +114,16 @@ async function init() {
     // Copy template files to target directory
     await copyRecursive(templateDir, targetDir);
 
+    // npm strips any file named `.gitignore` (or `.npmignore`) from the
+    // published package — it treats them as packaging metadata, not
+    // content. The template ships it as a plain `gitignore` file and we
+    // rename it back here so scaffolded projects still get one.
+    const gitignoreSourcePath = path.join(targetDir, "gitignore");
+    const gitignoreTargetPath = path.join(targetDir, ".gitignore");
+    if (existsSync(gitignoreSourcePath)) {
+      await fs.rename(gitignoreSourcePath, gitignoreTargetPath);
+    }
+
     // Derive a project name from the target directory so scaffolded
     // projects don't all share the template's placeholder name/DB.
     const projectName = path.basename(targetDir);
@@ -121,12 +134,19 @@ async function init() {
     const envPath = path.join(targetDir, ".env");
     if (existsSync(envExamplePath)) {
       await fs.copyFile(envExamplePath, envPath);
-      await updateEnvDbName(envPath, toDbName(projectName));
+      const dbName = options.dbName ? toDbName(options.dbName) : toDbName(projectName);
+      await updateEnvDbName(envPath, dbName);
       console.log(chalk.green("✔ Auto-generated .env file"));
     }
 
+    const gitInitialized = options.skipGit ? false : runGitInit(targetDir);
+
+    const installSucceeded = options.skipInstall
+      ? false
+      : await runNpmInstall(targetDir);
+
     // Display success message
-    displaySuccessMessage(targetDir);
+    displaySuccessMessage(targetDir, { installSucceeded, gitInitialized });
   } catch (error) {
     console.error(chalk.red(`Error: ${error.message}`));
     process.exit(1);
@@ -195,9 +215,12 @@ async function updatePackageName(dir, packageName) {
   const packageJsonPath = path.join(dir, "package.json");
   if (!existsSync(packageJsonPath)) return;
 
-  const pkg = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
-  pkg.name = packageName;
-  await fs.writeFile(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
+  const scaffoldedPkg = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
+  scaffoldedPkg.name = packageName;
+  await fs.writeFile(
+    packageJsonPath,
+    `${JSON.stringify(scaffoldedPkg, null, 2)}\n`
+  );
 }
 
 /**
@@ -234,10 +257,71 @@ async function cleanDirectory(dir) {
 }
 
 /**
+ * Runs `git init` in the target directory, unless it's already inside a
+ * git work tree (its own .git, or an ancestor's) or git isn't installed.
+ * @param {string} dir - Target project directory
+ * @returns {boolean} - Whether a new repo was actually initialized
+ */
+function runGitInit(dir) {
+  const alreadyInRepo = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd: dir,
+    stdio: "ignore",
+  });
+
+  if (alreadyInRepo.error) {
+    console.log(chalk.yellow("⚠ git not found — skipping git init"));
+    return false;
+  }
+
+  if (alreadyInRepo.status === 0) {
+    return false;
+  }
+
+  const result = spawnSync("git", ["init"], { cwd: dir, stdio: "ignore" });
+  if (result.error || result.status !== 0) {
+    console.log(chalk.yellow("⚠ git init failed — skipping"));
+    return false;
+  }
+
+  console.log(chalk.green("✔ Initialized a git repository"));
+  return true;
+}
+
+/**
+ * Runs `npm install` in the target directory, streaming output live.
+ * @param {string} dir - Target project directory
+ * @returns {Promise<boolean>} - Whether install succeeded
+ */
+function runNpmInstall(dir) {
+  console.log(chalk.cyan("\nInstalling dependencies with npm install...\n"));
+
+  return new Promise((resolve) => {
+    const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+    const child = spawn(npmCommand, ["install"], { cwd: dir, stdio: "inherit" });
+
+    child.on("error", () => {
+      console.log(chalk.yellow("\n⚠ npm install failed to start — skipping"));
+      resolve(false);
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        console.log(chalk.green("\n✔ Dependencies installed"));
+        resolve(true);
+      } else {
+        console.log(chalk.yellow("\n⚠ npm install failed — you can run it manually"));
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
  * Displays success message with next steps
  * @param {string} dir - Project directory
+ * @param {{ installSucceeded: boolean, gitInitialized: boolean }} status
  */
-function displaySuccessMessage(dir) {
+function displaySuccessMessage(dir, { installSucceeded, gitInitialized }) {
   const relativePath = path.relative(process.cwd(), dir);
   const dirDisplay =
     relativePath === "" ? "current directory" : `'${relativePath}'`;
@@ -251,12 +335,37 @@ function displaySuccessMessage(dir) {
     console.log(`  ${chalk.cyan("cd")} ${relativePath}`);
   }
 
-  console.log(`  ${chalk.cyan("npm install")}         # Install dependencies`);
+  if (!installSucceeded) {
+    console.log(`  ${chalk.cyan("npm install")}         # Install dependencies`);
+  }
+
   console.log(
     `  ${chalk.cyan("npm run dev")}          # Start development server\n`
   );
+
+  if (gitInitialized) {
+    console.log(chalk.dim("A git repository was initialized for you.\n"));
+  }
+
   console.log(chalk.blue("Happy coding! 🚀\n"));
 }
 
-// Run the initialization
-init();
+const program = new Command();
+
+program
+  .name("indigo-express")
+  .description(pkg.description)
+  .version(pkg.version, "-v, --version", "print the installed version")
+  .argument(
+    "[target]",
+    "directory to scaffold into ('.' for the current directory)"
+  )
+  .option("--skip-install", "don't run npm install after scaffolding")
+  .option("--skip-git", "don't run git init after scaffolding")
+  .option(
+    "--db-name <name>",
+    "override the auto-derived database name (used in .env)"
+  )
+  .action(init);
+
+program.parse();

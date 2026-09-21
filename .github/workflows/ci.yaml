@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Unit tests against the real CLI (test/cli.test.js spawns bin/indigo-express.js
+  # as a subprocess against throwaway temp dirs). No typecheck/build step here —
+  # the root package (bin/indigo-express.js) is plain JS with nothing to compile;
+  # only the scaffolded template/ uses TypeScript, and that has its own toolchain.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # --ignore-scripts: nothing in the tree needs an install hook, and
+      # refusing to run them removes the usual supply-chain entry point.
+      - run: npm ci --ignore-scripts
+
+      - run: npm test
+
+      # The tarball is what users actually get, so CI checks that rather than
+      # the working tree.
+      - run: npm pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-tarball
+          path: indigo-express-*.tgz
+          retention-days: 7
+
+  # package.json claims Node >=18. This proves it, by installing the built
+  # tarball globally on each supported version and actually running the CLI
+  # against a throwaway directory — the failure this catches is a syntax
+  # feature or fs API the 22-only test job would happily pass but an older
+  # supported Node can't run.
+  compatibility:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22, 24]
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-tarball
+
+      - name: Install the packed tarball globally
+        run: npm install -g ./indigo-express-*.tgz
+
+      - name: Scaffold a project with it
+        # --skip-install/--skip-git: this job is about the CLI/scaffold
+        # itself working on each Node version, not exercising a full
+        # dependency install or git — that's proven separately.
+        run: |
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          indigo-express . --skip-install --skip-git
+          test -f package.json
+          test -f src/app.ts
+          test -f .gitignore
+          test -f AGENTS.md
+          echo "Scaffold ok on Node ${{ matrix.node-version }}"
